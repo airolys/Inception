@@ -1,0 +1,61 @@
+services:
+  mariadb:
+    container_name: mariadb
+    build: ./requirements/mariadb/
+    env_file: .env
+    networks:
+     - inception
+    volumes:
+     - mariadbdb:/var/lib/mysql
+    restart: on-failure
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u $$SQL_USER --password=$$SQL_PASSWORD
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 42
+      
+  wordpress:
+    depends_on:
+        mariadb:
+          condition: service_healthy
+    container_name: wordpress
+    build: ./requirements/wordpress/
+    env_file: .env
+    networks:
+     - inception
+    volumes:
+     - wordpressdb:/var/www/wordpress
+    restart: on-failure
+
+  nginx:
+    depends_on:
+     - wordpress
+    container_name: nginx
+    build: ./requirements/nginx/
+    networks:
+     - inception
+    volumes:
+     - wordpressdb:/var/www/wordpress
+    ports:
+     - "443:443"
+    restart: on-failure
+
+volumes:
+  wordpressdb:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/acharra/data/wordpress
+
+  mariadbdb:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/acharra/data/mariadb
+
+networks:
+  inception:
+    driver: bridge
